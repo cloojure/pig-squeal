@@ -53,24 +53,64 @@
 ;    1 | one | cc-one
 ;    2 | two | cc-two
 ;   (2 rows)
-;
+
 (s/defn natural-join :- s/Str
   "Performs a join between two sub-expressions."
   [exp-map :- ts/KeyMap] ; #todo only tested for 2-way join for now
   (assert (= 2 (count exp-map)))
-  (let [[p1-alias p1-exp]       (first  exp-map)
-        [p2-alias p2-exp]   (second exp-map) 
+  (let [[p1-alias p1-exp]   (first  exp-map)  ; #todo verify "select .*"
+        [p2-alias p2-exp]   (second exp-map)  ; #todo verify "select .*"
         result  (tm/collapse-whitespace 
-                  (format " %s as %s
-                         natural join (
-                          %s ) as %s" 
+                  ; #todo need utils for shifting lines (right)
+                  (format "%s 
+                             as %s
+                           natural join (
+                             %s 
+                           ) as %s ;" 
                     p1-exp (tm/kw->dbstr p1-alias)
                     p2-exp (tm/kw->dbstr p2-alias)))
   ]
     (println result)
     result
-  ))
-  
+  ))  
+        ; select
+        ;   dashboards.name,
+        ;   log_counts.ct
+        ; from dashboards 
+        ; join (
+        ;   select 
+        ;     distinct_logs.dashboard_id, 
+        ;     count(1) as ct
+        ;   from (
+        ;     select distinct 
+        ;       dashboard_id, 
+        ;       user_id
+        ;     from time_on_site_logs
+        ;   ) as distinct_logs
+        ;   group by distinct_logs.dashboard_id
+        ; ) as log_counts 
+        ; on log_counts.dashboard_id = dashboards.id
+        ; order by log_counts.ct desc
+
+        ; WITH 
+        ;   regional_sales AS (
+        ;     SELECT region, SUM(amount) AS total_sales
+        ;     FROM orders
+        ;     GROUP BY region
+        ;   ), 
+        ;   top_regions AS (
+        ;     SELECT region
+        ;     FROM regional_sales
+        ;     WHERE total_sales > (SELECT SUM(total_sales)/10 FROM regional_sales)
+        ;   )
+        ; SELECT 
+        ;   region,
+        ;   product,
+        ;   SUM(quantity) AS product_units,
+        ;   SUM(amount) AS product_sales
+        ; FROM orders
+        ; WHERE region IN (SELECT region FROM top_regions)
+        ; GROUP BY region, product;
 
 (defn -main []
   (println "main - enter")

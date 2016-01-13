@@ -56,7 +56,7 @@
 
     (spyx (jdbc/query db-spec 
             (natural-join { :q1 "select * from tmp1" 
-                    :q2 "select * from tmp2" } )))
+                            :q2 "select * from tmp2" } )))
 
   (catch Exception ex
     (do (spyx ex)
