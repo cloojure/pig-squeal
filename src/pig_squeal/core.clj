@@ -30,7 +30,6 @@
                       (format "\n  %s %s"   (tm/kw->dbstr col-name) 
                                             (tm/kw->dbstr col-type))))
         result    (format "create table %s (%s) ;" (tm/kw->dbstr name) cols-str) ]
-    (println result)
     result ))
 
 ; (s/defn select ...)
@@ -54,6 +53,36 @@
 ;    2 | two | cc-two
 ;   (2 rows)
 
+; (def KeywordStrList  [ (s/maybe s/Keyword)  ; #todo make this work
+;                        (s/maybe s/Str) ] )
+
+; #todo maybe do:  (select :user-info [:user-name :phone :id] )
+;                            ^table       ^col       ^col  ^col
+; #todo maybe do:  (select :user-info [:user-name :phone :id] 
+;                          :where    ... 
+;                          :group-by ... 
+;                          :order-by ...  } )
+;       e.g.       (select [tbl-name col-lst & options-map] )
+(s/defn select :- s/Str
+  "Format SQL select statement; eg: 
+     (select :user-name :phone :id :from :user-info) 
+     (select :*                    :from :log-data) 
+     (select \"count(*)\"          :from :big-table)
+   "  ; #todo add examples to all docstrings
+  [& args :- [s/Any]]
+  (let [num-cols    (- (count args) 2)
+        cols        (take num-cols args)
+        tails       (drop num-cols args)
+        from-kw     (first tails)
+        _ (assert (= :from from-kw))    ; #todo test this
+        table       (last tails) 
+        cols-str    (str/join ", "
+                      (mapv tm/kw->dbstr cols))
+        table-str   (tm/kw->dbstr table) 
+        result      (format "select %s from %s" cols-str table-str)
+  ]
+    result))
+
 (s/defn natural-join :- s/Str
   "Performs a join between two sub-expressions."
   [exp-map :- ts/KeyMap] ; #todo only tested for 2-way join for now
@@ -62,13 +91,17 @@
         [p2-alias p2-exp]   (second exp-map)  ; #todo verify "select .*"
         result  (tm/collapse-whitespace 
                   ; #todo need utils for shifting lines (right)
-                  (format "%s 
-                             as %s
-                           natural join (
-                             %s 
-                           ) as %s ;" 
-                    p1-exp (tm/kw->dbstr p1-alias)
-                    p2-exp (tm/kw->dbstr p2-alias)))
+                  (let [p1-alias-str  (tm/kw->dbstr p1-alias) 
+                        p2-alias-str  (tm/kw->dbstr p2-alias) ]
+                    (format "with
+                               %s as (%s),
+                               %s as (%s)
+                             select * from 
+                               %s natural join %s ;" 
+                        p1-alias-str p1-exp 
+                        p2-alias-str p2-exp 
+                        p1-alias-str p2-alias-str
+                      )))
   ]
     (println result)
     result

@@ -2,12 +2,13 @@
   (:use pig-squeal.core
         tupelo.core)
   (:require [clojure.test :refer :all]
-            [pig-squeal.core :refer :all]
             [clojure.string         :as str]
             [clojure.java.jdbc      :as jdbc]
-            [schema.core            :as s]
             [java-jdbc.ddl          :as ddl]
-            [java-jdbc.sql          :as sql] )
+            [java-jdbc.sql          :as sql]
+            [schema.core            :as s]
+            [tupelo.misc            :as tm]
+            )
   (:import  com.mchange.v2.c3p0.ComboPooledDataSource)
 )
 
@@ -25,17 +26,27 @@
 ; int integer int4 int8 
 ; numeric
 (deftest t-create-table
-  (try
-    (jdbc/db-do-commands db-spec 
-      (create-table :tmp {:id :serial  :aa (not-null :int)  :bb :text} ))
-    (jdbc/db-do-commands db-spec "insert into tmp (aa,bb) values (1,'one'); ")
-    (jdbc/db-do-commands db-spec "insert into tmp (aa,bb) values (2,'two'); ")
-    (jdbc/query db-spec (sql/select "*" :tmp))
-    (jdbc/db-do-commands db-spec (drop-table :tmp))
-  (catch Exception ex
-    (do (spyx ex)
-        (spyx (.getNextException ex))
-        (System/exit 1)))))
+  (let [cmd   (create-table :tmp {:id :serial  :aa (not-null :int)  :bb :text} ) ]
+    (is (= cmd "create table tmp (\n  id serial,\n  aa int not null,\n  bb text) ;"))
+    (try
+      (jdbc/db-do-commands db-spec cmd )
+      (jdbc/db-do-commands db-spec "insert into tmp (aa,bb) values (1,'one'); ")
+      (jdbc/db-do-commands db-spec "insert into tmp (aa,bb) values (2,'two'); ")
+      (jdbc/query db-spec (sql/select "*" :tmp))
+      (jdbc/db-do-commands db-spec (drop-table :tmp))
+    (catch Exception ex
+      (do (spyx ex)
+          (spyx (.getNextException ex))
+          (System/exit 1))))))
+
+(deftest t-select
+  (is (= "select user_name, phone, id from user_info"  
+         (tm/collapse-whitespace (select :user-name :phone :id :from :user-info))))
+  (is (= "select * from log_data"   
+         (tm/collapse-whitespace (select :* :from :log-data))))
+  (is (= "select count(*) from big_table"   
+         (tm/collapse-whitespace (select "count(*)" :from :big-table))))
+)
 
 (deftest t-natural-join
   (try
@@ -46,17 +57,17 @@
       (create-table :tmp1 {:id :serial  :aa (not-null :int)  :bb :text} ))
     (jdbc/db-do-commands db-spec "insert into tmp1 (aa,bb) values (1,'one'); ")
     (jdbc/db-do-commands db-spec "insert into tmp1 (aa,bb) values (2,'two'); ")
-    (spyx (jdbc/query db-spec (sql/select "*" :tmp1)))
+  ; (spyx (jdbc/query db-spec (sql/select "*" :tmp1)))
 
     (jdbc/db-do-commands db-spec 
       (create-table :tmp2 {:id :serial  :aa (not-null :int)  :cc :text} ))
     (jdbc/db-do-commands db-spec "insert into tmp2 (aa,cc) values (1,'cc-one'); ")
     (jdbc/db-do-commands db-spec "insert into tmp2 (aa,cc) values (2,'cc-two'); ")
-    (spyx (jdbc/query db-spec (sql/select "*" :tmp2)))
+  ; (spyx (jdbc/query db-spec (sql/select "*" :tmp2)))
 
     (spyx (jdbc/query db-spec 
-            (natural-join { :q1 "select * from tmp1" 
-                            :q2 "select * from tmp2" } )))
+            (natural-join { :q1 (select :* :from :tmp1)
+                            :q2 (select :* :from :tmp2) } )))
 
   (catch Exception ex
     (do (spyx ex)
@@ -64,5 +75,7 @@
         (System/exit 1)))))
 
 (deftest t-drop-table-if-exists
-  (jdbc/db-do-commands db-spec (spyx (drop-table-if-exists :tmp) ))
+  (let [cmd   (drop-table-if-exists :tmp) ]
+    (is (= "drop table if exists tmp ;\n" cmd))
+    (jdbc/db-do-commands db-spec cmd ))
 )
