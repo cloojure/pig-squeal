@@ -39,14 +39,18 @@
           (spyx (.getNextException ex))
           (System/exit 1))))))
 
+(deftest t-out
+  (is (= "user_name, phone, id"     (tm/collapse-whitespace (out :user-name :phone :id))))
+  (is (= "*"                        (tm/collapse-whitespace (out :*))))
+  (is (= "count(*)"                 (tm/collapse-whitespace (out "count(*)")))))
+
 (deftest t-select
   (is (= "select user_name, phone, id from user_info"  
          (tm/collapse-whitespace (select :user-name :phone :id :from :user-info))))
   (is (= "select * from log_data"   
          (tm/collapse-whitespace (select :* :from :log-data))))
   (is (= "select count(*) from big_table"   
-         (tm/collapse-whitespace (select "count(*)" :from :big-table))))
-)
+         (tm/collapse-whitespace (select "count(*)" :from :big-table)))))
 
 (deftest t-natural-join
   (try
@@ -65,9 +69,13 @@
     (jdbc/db-do-commands db-spec "insert into tmp2 (aa,cc) values (2,'cc-two'); ")
   ; (spyx (jdbc/query db-spec (sql/select "*" :tmp2)))
 
+    (newline)
+    (println "live query results:")
     (spyx (jdbc/query db-spec 
-            (natural-join { :q1 (select :* :from :tmp1)
-                            :q2 (select :* :from :tmp2) } )))
+            (natural-join { :ll (select :* :from :tmp1)
+                            :rr (select :* :from :tmp2) 
+                            :out [:*]
+                          } )))
 
   (catch Exception ex
     (do (spyx ex)

@@ -63,21 +63,25 @@
 ;                          :group-by ... 
 ;                          :order-by ...  } )
 ;       e.g.       (select [tbl-name col-lst & options-map] )
+(s/defn out :- s/Str
+  "Format output part (e.g. '*', et al) for 'select * from ...' & friends"
+  [& args :- [s/Any] ] ; #todo why ts/Tuple fail???
+  (str/join ", "
+    (mapv tm/kw->dbstr args)))
 (s/defn select :- s/Str
   "Format SQL select statement; eg: 
      (select :user-name :phone :id :from :user-info) 
      (select :*                    :from :log-data) 
      (select \"count(*)\"          :from :big-table)
    "  ; #todo add examples to all docstrings
-  [& args :- [s/Any]]
+  [& args :- [s/Any] ] ; #todo ts/Tuple ???
   (let [num-cols    (- (count args) 2)
         cols        (take num-cols args)
         tails       (drop num-cols args)
         from-kw     (first tails)
         _ (assert (= :from from-kw))    ; #todo test this
         table       (last tails) 
-        cols-str    (str/join ", "
-                      (mapv tm/kw->dbstr cols))
+        cols-str    (apply out cols)
         table-str   (tm/kw->dbstr table) 
         result      (format "select %s from %s" cols-str table-str)
   ]
@@ -86,22 +90,17 @@
 (s/defn natural-join :- s/Str
   "Performs a join between two sub-expressions."
   [exp-map :- ts/KeyMap] ; #todo only tested for 2-way join for now
-  (assert (= 2 (count exp-map)))
-  (let [[p1-alias p1-exp]   (first  exp-map)  ; #todo verify "select .*"
-        [p2-alias p2-exp]   (second exp-map)  ; #todo verify "select .*"
-        result  (tm/collapse-whitespace 
-                  ; #todo need utils for shifting lines (right)
-                  (let [p1-alias-str  (tm/kw->dbstr p1-alias) 
-                        p2-alias-str  (tm/kw->dbstr p2-alias) ]
-                    (format "with
-                               %s as (%s),
-                               %s as (%s)
-                             select * from 
-                               %s natural join %s ;" 
-                        p1-alias-str p1-exp 
-                        p2-alias-str p2-exp 
-                        p1-alias-str p2-alias-str
-                      )))
+  (let [left-exp    (grab :ll exp-map)  ; #todo verify "select .*"
+        right-exp   (grab :rr exp-map)  ; #todo verify "select .*"
+        out-exp     (grab :out exp-map)
+        ; #todo make :ll & :rr user-selectable?
+        result      (tm/collapse-whitespace ; #todo need utils for shifting lines (right)
+                      (format "with
+                                 ll as (%s),
+                                 rr as (%s)
+                               select %s from 
+                                 ll natural join rr ;" 
+                          left-exp right-exp (apply out out-exp)))
   ]
     (println result)
     result
