@@ -7,10 +7,8 @@
             [java-jdbc.ddl          :as ddl]
             [java-jdbc.sql          :as sql]
             [schema.core            :as s]
-            [tupelo.misc            :as tm]
-            )
-  (:import  com.mchange.v2.c3p0.ComboPooledDataSource)
-)
+            [tupelo.misc            :as tm] )
+  (:import  com.mchange.v2.c3p0.ComboPooledDataSource))
 
 ; #todo git basic pg_hba.conf into git
 ; #todo blog about scm of pg *.conf files
@@ -45,11 +43,11 @@
   (is (= "count(*)"                 (tm/collapse-whitespace (out "count(*)")))))
 
 (deftest t-select
-  (is (= "select user_name, phone, id from user_info"  
+  (is (= "select user_name, phone, id from user_info"
          (tm/collapse-whitespace (select :user-name :phone :id :from :user-info))))
-  (is (= "select * from log_data"   
+  (is (= "select * from log_data"
          (tm/collapse-whitespace (select :* :from :log-data))))
-  (is (= "select count(*) from big_table"   
+  (is (= "select count(*) from big_table"
          (tm/collapse-whitespace (select "count(*)" :from :big-table)))))
 
 (deftest t-natural-join
